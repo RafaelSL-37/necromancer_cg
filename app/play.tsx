@@ -34,9 +34,7 @@ function skipHandler(
 ): void {
   if (firstPlayerSkip && secondPlayerSkip) {
     if (firstPlayerFirstRound.length == 0) {
-      const playerWhoWon = calculatePlayerCurrentPoints(firstPlayerPlayedCards) >= calculatePlayerCurrentPoints(secondPlayerPlayedCards)
-        ? 1
-        : 2;
+      const roundWinner = calculateRoundWinner(firstPlayerPlayedCards, secondPlayerPlayedCards);
 
       setFirstPlayerFirstRound(firstPlayerPlayedCards);
       setFirstPlayerPlayedCards([]);
@@ -46,17 +44,13 @@ function skipHandler(
       setSecondPlayerPlayedCards([]);
       setSecondPlayerSkip(false);
 
-      setTurn(playerWhoWon);
+      setTurn(roundWinner);
     } else if (firstPlayerSecondRound.length == 0) {
-      const firstRoundPlayerWhoWon = calculatePlayerCurrentPoints(firstPlayerPlayedCards) >= calculatePlayerCurrentPoints(secondPlayerPlayedCards)
-        ? 1
-        : 2;
-      const secondRoundPlayerWhoWon = calculatePlayerCurrentPoints(firstPlayerPlayedCards) >= calculatePlayerCurrentPoints(secondPlayerPlayedCards)
-        ? 1
-        : 2;
+      const firstRoundWinner = calculateRoundWinner(firstPlayerFirstRound, secondPlayerFirstRound);
+      const secondRoundWinner = calculateRoundWinner(firstPlayerPlayedCards, secondPlayerPlayedCards);
       
-      if (firstRoundPlayerWhoWon == secondRoundPlayerWhoWon) {
-        endGame();
+      if (firstRoundWinner == secondRoundWinner) {
+        endGame(`Player ${firstRoundWinner} won!`);
       } else {
         setFirstPlayerSecondRound(firstPlayerPlayedCards);
         setFirstPlayerPlayedCards([]);
@@ -65,9 +59,11 @@ function skipHandler(
         setSecondPlayerSecondRound(secondPlayerPlayedCards);
         setSecondPlayerPlayedCards([]);
         setSecondPlayerSkip(false);
+
+        endGame("It's a tie!");
       }
     } else {
-      endGame();
+      endGame("Game over!");
     }
   } else if (firstPlayerSkip) {
     setTurn(2);
@@ -80,24 +76,35 @@ function calculatePlayerCurrentPoints(playedCards: any[]): number {
   return playedCards.reduce((cardValueSum, playedCard) => playedCard?.value ? cardValueSum + playedCard?.value : cardValueSum, 0);
 }
 
+function calculateRoundWinner(firstPlayerPlayedCards: TPlayedCard[], secondPlayerPlayedCards: TPlayedCard[]): number {
+  const player1Points = calculatePlayerCurrentPoints(firstPlayerPlayedCards);
+  const player2Points = calculatePlayerCurrentPoints(secondPlayerPlayedCards);
+
+  if (player1Points > player2Points) return 1;
+  if (player2Points > player1Points) return 2;
+
+  return 1;
+}
+
 function drawCards(
+  currentHand: TDeckCard[],
   deck: TDeckCard[], 
   setHand: any, 
   setDeck: any, 
   amountOfCardsDrawn: number
 ): void {
-  const hand = [];
+  const drawn = [];
 
   if (amountOfCardsDrawn > deck.length) {
-    // endGame(); //TODO: ENDGAME FUNCTION
+    endGame("Not enough cards to draw!");
   }
 
   for (let i = 0; i < amountOfCardsDrawn; i++) {
     const firstCard = deck.pop();    
-    hand.push(firstCard);
+    drawn.push(firstCard);
   }
 
-  setHand(hand);
+  setHand([...currentHand, ...drawn]);
   setDeck(deck);
 }
 
@@ -133,23 +140,22 @@ export default function Play() {
     const firstPlayerConstructedDeck = shuffleDeck(constructDeck(selectedCards.split(',')))
     const secondPlayerConstructedDeck = shuffleDeck(constructDeck([]))
 
-    drawCards(firstPlayerConstructedDeck, setFirstPlayerHand, setFirstPlayerDeck, 4);
-    drawCards(secondPlayerConstructedDeck, setSecondPlayerHand, setSecondPlayerDeck, 4);
+    drawCards([], firstPlayerConstructedDeck, setFirstPlayerHand, setFirstPlayerDeck, 4);
+    drawCards([], secondPlayerConstructedDeck, setSecondPlayerHand, setSecondPlayerDeck, 4);
   }, [selectedCards]);
 
   useEffect(() => {    
-    if (turn == 2) {
+    if (turn == 1 && firstPlayerSkip) {
+      setTurn(2);
+    } else if (turn == 2 && !secondPlayerSkip) {
       if (calculatePlayerCurrentPoints(firstPlayerPlayedCards) >= calculatePlayerCurrentPoints(secondPlayerPlayedCards)) {
-        //TODO: KEEP PLAYING IF PLAYER 1 SKIPPED
-        
         playCard(0, secondPlayerHand, setSecondPlayerHand, secondPlayerPlayedCards, setSecondPlayerPlayedCards);
-  
-        if (!firstPlayerSkip) setTurn(1);
+        setTurn(1);
       } else {
         setSecondPlayerSkip(true);
       }
     }
-  }, [turn]);
+  }, [turn, firstPlayerSkip, secondPlayerSkip]);
 
   useEffect(() => {
     skipHandler(
@@ -252,7 +258,7 @@ export default function Play() {
         </ThemedView>
         <ThemedView style={styles.giveUpButtonContainer}>
           <Pressable
-            onPress={() => {endGame()}}
+            onPress={() => {endGame("You gave up. Player 2 wins!")}}
             // onPress={() => {setIsModalOpen(true)}} //TODO: CONFIRMATION POPUP WITH STATE TO DETERMINE IF IT IS OPEN OR NOT
             accessibilityLabel="Give up and go back to deck builder"
             style={{flex: 1, backgroundColor: "#841584", justifyContent: 'center'}}

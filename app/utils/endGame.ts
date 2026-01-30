@@ -1,11 +1,15 @@
 import { Alert, Linking } from "react-native";
+import { router } from 'expo-router';
 
-export async function endGame(): Promise<void> {
-    const supported = await Linking.canOpenURL('/');
-
-    if (supported) {
-      await Linking.openURL('/');
-    } else {
-      Alert.alert(`Don't know how to open this URL: ${'/'}`);
-    }
+export async function endGame(message: string): Promise<void> {
+  Alert.alert(
+    "Game Over",
+    message,
+    [
+      {
+        text: "OK",
+        onPress: () => router.push('/quick_duel'),
+      },
+    ]
+  );
 }
